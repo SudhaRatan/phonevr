@@ -1,0 +1,22 @@
+{
+	"jsonid": "input_profile",
+	"legacy_binding": "{phonevr}/input/legacy_binding_phonevr_gaze.json",
+	"controller_type": "phonevr_gaze",
+	"input_bindingui_mode": "single_device",
+	"input_bindingui_right": {
+		"image": "{phonevr}/icons/phonevr_gaze.svg"
+	},
+	"input_source": {
+		"/input/trigger": {
+			"binding_image_point": [ 200, 100 ],
+			"type": "trigger",
+			"order": 1
+		}
+	},
+	"default_bindings": [
+		{
+			"app_key": "openvr.component.vrcompositor",
+			"binding_url": "vrcompositor_binding_phonevr_gaze.json"
+		}
+	]
+}

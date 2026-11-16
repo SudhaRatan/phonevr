@@ -1,0 +1,22 @@
+{
+  "driver_phonevr": {
+    "streamWidth": 2160,
+    "streamHeight": 1080,
+    "refreshRate": 60.0,
+    "bitrateKbps": 30000,
+    "renderScale": 1.4,
+    "verticalFovDegrees": 90.0,
+    "lensK1": 0.25,
+    "lensK2": 0.08,
+    "chromaticAberration": 0.0,
+    "lensCenterShiftX": 0.0,
+    "lensCenterShiftY": 0.0,
+    "ipdMm": 63.0,
+    "headHeightM": 1.6,
+    "usbEnabled": true,
+    "adbPath": "",
+    "enableHotkeys": true,
+    "gpuIndex": -1,
+    "disableGazeController": true
+  }
+}

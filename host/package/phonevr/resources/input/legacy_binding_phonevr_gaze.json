@@ -1,0 +1,23 @@
+{
+	"bindings": {
+		"/actions/legacy": {
+			"sources": [
+				{
+					"inputs": {
+						"single": {
+							"output": "/actions/legacy/in/right_axis1_press"
+						}
+					},
+					"mode": "button",
+					"parameters": {
+						"sub_mode": "complex"
+					},
+					"path": "/user/hand/right/input/trigger"
+				}
+			]
+		}
+	},
+	"controller_type": "phonevr_gaze",
+	"description": "",
+	"name": "Default binding for PhoneVR gaze pointer for legacy applications"
+}

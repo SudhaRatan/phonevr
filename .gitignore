@@ -1,0 +1,56 @@
+# ---- PC driver (CMake / Visual Studio) ----
+host/build/
+build/
+out/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*.sln.docstates
+.vs/
+*.user
+*.suo
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+*.log
+
+# ---- Android / Gradle ----
+.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+*.iml
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Signing keys: never commit these
+*.jks
+*.keystore
+keystore.properties
+
+# ---- Downloaded tools / local test output ----
+platform-tools/
+adb/
+*.zip
+
+# ---- IDEs ----
+.idea/
+.vscode/
+*.swp
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db
+desktop.ini

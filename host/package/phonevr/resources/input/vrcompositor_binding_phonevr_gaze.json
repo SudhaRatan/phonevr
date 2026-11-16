@@ -1,0 +1,21 @@
+{
+	"app_key": "openvr.component.vrcompositor",
+	"bindings": {
+		"/actions/lasermouse": {
+			"sources": [
+				{
+					"inputs": {
+						"single": {
+							"output": "/actions/lasermouse/in/leftclick"
+						}
+					},
+					"mode": "button",
+					"path": "/user/hand/right/input/trigger"
+				}
+			]
+		}
+	},
+	"controller_type": "phonevr_gaze",
+	"description": "",
+	"name": "PhoneVR gaze pointer: click the dashboard and menus"
+}
