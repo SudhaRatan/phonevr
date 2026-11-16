@@ -29,7 +29,7 @@ class StreamClient(
     private val refreshHz: Float,
     private val listener: Listener,
 ) {
-    data class Config(val mode: Int, val host: String, val bitrateKbps: Int)
+    data class Config(val mode: Int, val host: String, val bitrateKbps: Int, val pacing: Boolean = true)
 
     interface Listener {
         fun onStatus(text: String)
@@ -53,6 +53,17 @@ class StreamClient(
 
     private val sensorBuf = ByteBuffer.allocate(Proto.HEADER_SIZE + Proto.SENSOR_SIZE)
         .order(ByteOrder.LITTLE_ENDIAN)
+    private val imuBuf = ByteBuffer.allocate(Proto.HEADER_SIZE + Proto.IMU_SIZE)
+        .order(ByteOrder.LITTLE_ENDIAN)
+    private val pingBuf = ByteBuffer.allocate(Proto.HEADER_SIZE + 8).order(ByteOrder.LITTLE_ENDIAN)
+    private var lastPingMs = 0L
+    private val rttStat = Stat { a, m -> Diag.rttAvgMs = a; Diag.rttMaxMs = m }
+    private val queueStat = Stat { a, m -> Diag.queueAvgMs = a; Diag.queueMaxMs = m }
+    // The PC and phone clocks differ by an unknown constant, so we only look at how much
+    // a frame's arrival delay exceeds the best (smallest) delay seen recently.
+    private var curMinUs = Long.MAX_VALUE
+    private var prevMinUs = Long.MAX_VALUE
+    private var minRotateUs = 0L
     private val smallBuf = ByteBuffer.allocate(Proto.HEADER_SIZE + 8).order(ByteOrder.LITTLE_ENDIAN)
     @Volatile private var lastIdrRequestMs = 0L
 
@@ -94,6 +105,53 @@ class StreamClient(
                 try { socket?.close() } catch (_: Exception) {}
             }
         }
+    }
+
+    fun sendImu(timestampNs: Long, gx: Float, gy: Float, gz: Float,
+                ax: Float, ay: Float, az: Float, rotation: Int) {
+        val o = out ?: return
+        synchronized(writeLock) {
+            val b = imuBuf
+            b.clear()
+            writeHeader(b, Proto.MSG_IMU, Proto.IMU_SIZE)
+            b.putLong(timestampNs)
+            b.putFloat(gx); b.putFloat(gy); b.putFloat(gz)
+            b.putFloat(ax); b.putFloat(ay); b.putFloat(az)
+            b.put(rotation.toByte()); b.put(0); b.put(0); b.put(0)
+            try {
+                o.write(b.array(), 0, b.position())
+                o.flush()
+            } catch (e: Exception) {
+                try { socket?.close() } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun sendPing() {
+        val o = out ?: return
+        synchronized(writeLock) {
+            val b = pingBuf
+            b.clear()
+            writeHeader(b, Proto.MSG_PING, 8)
+            b.putLong(System.nanoTime())
+            try {
+                o.write(b.array(), 0, b.position())
+                o.flush()
+            } catch (e: Exception) {
+                try { socket?.close() } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun noteVideoDelay(hostTimeUs: Long) {
+        val nowUs = System.nanoTime() / 1000
+        val raw = nowUs - hostTimeUs
+        if (minRotateUs == 0L) minRotateUs = nowUs
+        if (nowUs - minRotateUs >= 10_000_000L) {
+            prevMinUs = curMinUs; curMinUs = Long.MAX_VALUE; minRotateUs = nowUs
+        }
+        if (raw < curMinUs) curMinUs = raw
+        queueStat.add(raw - minOf(curMinUs, prevMinUs), nowUs)
     }
 
     fun sendRecenter() = post { sendSimple(Proto.MSG_RECENTER, 0) }
@@ -253,12 +311,15 @@ class StreamClient(
         if (version != Proto.VERSION || w <= 0 || h <= 0) return false
 
         listener.onStreaming(w, h, fps)
-        val decoder = VideoDecoder(surface, w, h, fps)
+        val decoder = VideoDecoder(surface, w, h, fps, cfg.pacing)
         out = os // sensors may flow from now on
+        curMinUs = Long.MAX_VALUE; prevMinUs = Long.MAX_VALUE; minRotateUs = 0L
         var needKey = true
         var frameBuf = ByteArray(256 * 1024)
         try {
             while (running) {
+                val nowMs = System.currentTimeMillis()
+                if (nowMs - lastPingMs >= 250) { lastPingMs = nowMs; post { sendPing() } }
                 try { if (!readFully(ins, hdr, 0, hdr.size)) break }
                 catch (_: SocketTimeoutException) { continue } // SteamVR idle: no frames is normal
                 val b = ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN)
@@ -268,9 +329,16 @@ class StreamClient(
                 if (l < 0 || l > Proto.MAX_MESSAGE) break
                 if (l > frameBuf.size) frameBuf = ByteArray(l + l / 2)
                 if (!readFullyPatient(ins, frameBuf, 0, l)) break
+                if (t == Proto.MSG_PONG && l >= 8) {
+                    val sentNs = ByteBuffer.wrap(frameBuf, 0, 8).order(ByteOrder.LITTLE_ENDIAN).getLong()
+                    val nowNs = System.nanoTime()
+                    rttStat.add(((nowNs - sentNs) / 1000).coerceAtLeast(0L), nowNs / 1000)
+                    continue
+                }
                 if (t != Proto.MSG_VIDEO || l <= Proto.VIDEO_HEADER_SIZE) continue
 
                 val keyframe = frameBuf[16].toInt() != 0
+                noteVideoDelay(ByteBuffer.wrap(frameBuf, 8, 8).order(ByteOrder.LITTLE_ENDIAN).getLong())
                 if (needKey && !keyframe) { requestIdr(); continue }
                 val ok = try {
                     decoder.feed(frameBuf, Proto.VIDEO_HEADER_SIZE, l - Proto.VIDEO_HEADER_SIZE,

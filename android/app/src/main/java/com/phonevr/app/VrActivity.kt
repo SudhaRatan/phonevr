@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.util.DisplayMetrics
 import android.view.GestureDetector
@@ -36,6 +38,8 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
     private var client: StreamClient? = null
     private var sensors: SensorSender? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var diagHandler: Handler? = null
+    private var diagRunnable: Runnable? = null
     private var screenW = 0
     private var screenH = 0
 
@@ -51,7 +55,7 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
         }
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (pm.isSustainedPerformanceModeSupported) window.setSustainedPerformanceMode(true)
+            if (prefs.sustainedPerf && pm.isSustainedPerformanceModeSupported) window.setSustainedPerformanceMode(true)
         } catch (_: Exception) {}
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
@@ -63,6 +67,27 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
         }
         root.addView(status, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        if (prefs.showDiag) {
+            val diag = TextView(this).apply {
+                setTextColor(Color.GREEN)
+                textSize = 12f
+                setBackgroundColor(Color.argb(160, 0, 0, 0))
+                setPadding(12, 8, 12, 8)
+            }
+            root.addView(diag, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.START))
+            val h = Handler(Looper.getMainLooper())
+            val r = object : Runnable {
+                override fun run() {
+                    diag.text = Diag.summary()
+                    h.postDelayed(this, 500)
+                }
+            }
+            diagHandler = h
+            diagRunnable = r
+            h.post(r)
+        }
         setContentView(root)
 
         val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -90,10 +115,10 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
         @Suppress("DEPRECATION") val hz = windowManager.defaultDisplay.refreshRate
 
         val c = StreamClient(
-            StreamClient.Config(prefs.mode, prefs.host, prefs.bitrateKbps),
+            StreamClient.Config(prefs.mode, prefs.host, prefs.bitrateKbps, prefs.framePacing),
             holder.surface, screenW, screenH, hz, this)
         client = c
-        val s = SensorSender(this, c) { currentRotation() }
+        val s = SensorSender(this, c, prefs.rawGyro) { currentRotation() }
         if (!s.start()) {
             setStatus("This phone has no gyroscope-based rotation sensor.")
             return
@@ -110,6 +135,7 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
     }
 
     override fun onDestroy() {
+        diagRunnable?.let { diagHandler?.removeCallbacks(it) }
         try { wifiLock?.release() } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -129,25 +155,11 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (event.repeatCount == 0) client?.sendRecenter()
-                return true
-            }
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (event.repeatCount == 0) client?.sendRecenter()
-                return true
-            }
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (event.repeatCount == 0) client?.sendRecenter()
+            return true
         }
         return super.onKeyDown(keyCode, event)
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> { client?.sendClick(false); return true }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> return true
-        }
-        return super.onKeyUp(keyCode, event)
     }
 
     // ---- StreamClient.Listener (called from the network thread) ----------

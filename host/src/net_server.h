@@ -26,6 +26,7 @@ public:
         std::function<void()> onRequestIdr;
         std::function<void(uint32_t)> onSetBitrate;
         std::function<void(bool)> onClick;
+        std::function<void(const ImuMsg&)> onImu;
     };
 
     NetServer(const Settings& s, Callbacks cb) : settings_(s), cb_(std::move(cb)) {}

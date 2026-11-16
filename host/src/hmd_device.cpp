@@ -107,7 +107,7 @@ vr::EVRInitError HmdDevice::Activate(uint32_t id) {
     props->SetFloatProperty(c, vr::Prop_UserIpdMeters_Float, s_.ipdMm * 0.001f);
     props->SetFloatProperty(c, vr::Prop_UserHeadToEyeDepthMeters_Float, 0.f);
     props->SetFloatProperty(c, vr::Prop_DisplayFrequency_Float, s_.refreshRate);
-    props->SetFloatProperty(c, vr::Prop_SecondsFromVsyncToPhotons_Float, 0.011f);
+    props->SetFloatProperty(c, vr::Prop_SecondsFromVsyncToPhotons_Float, s_.photonLatencyMs * 0.001f);
     props->SetUint64Property(c, vr::Prop_CurrentUniverseId_Uint64, 2);
     props->SetBoolProperty(c, vr::Prop_IsOnDesktop_Bool, false);
     props->SetBoolProperty(c, vr::Prop_DisplayDebugMode_Bool, false);
@@ -224,11 +224,37 @@ void HmdDevice::PushPose(const vr::DriverPose_t& p) {
     if (gaze_) gaze_->UpdatePose(p);
 }
 
+void HmdDevice::NoteSample() {
+    sensorCount_++;
+    const int64_t now = std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch()).count();
+    const int64_t prev = lastSampleUs_.exchange(now);
+    if (prev) {
+        const uint32_t gap = (uint32_t)std::min<int64_t>(now - prev, 4000000);
+        uint32_t cur = maxGapUs_.load();
+        while (gap > cur && !maxGapUs_.compare_exchange_weak(cur, gap)) {}
+    }
+}
+
 void HmdDevice::OnSensor(const SensorMsg& m) {
+    NoteSample();
     vr::DriverPose_t pose;
     {
         std::lock_guard<std::mutex> lk(poseMutex_);
         tracker_.update(Quat{m.qw, m.qx, m.qy, m.qz}, m.displayRotation, m.timestampNs);
+        pose = BuildPoseLocked();
+    }
+    PushPose(pose);
+}
+
+void HmdDevice::OnImu(const ImuMsg& m) {
+    NoteSample();
+    vr::DriverPose_t pose;
+    {
+        std::lock_guard<std::mutex> lk(poseMutex_);
+        Quat q;
+        if (!fusion_.update({m.gx, m.gy, m.gz}, {m.ax, m.ay, m.az}, m.timestampNs, &q)) return;
+        tracker_.update(q, m.displayRotation, m.timestampNs);
         pose = BuildPoseLocked();
     }
     PushPose(pose);
@@ -242,6 +268,8 @@ void HmdDevice::Recenter() {
 void HmdDevice::OnPhoneConnected() {
     std::lock_guard<std::mutex> lk(poseMutex_);
     tracker_.reset();  // first sample of the new session defines "forward"
+    fusion_.reset();
+    lastSampleUs_ = 0;
     phoneConnected_ = true;
 }
 
@@ -267,6 +295,8 @@ void HmdDevice::VsyncLoop() {
     auto next = clock::now() + interval;
     bool keyWasDown = false;
     int keyDivider = 0;
+    auto lastRateLog = clock::now();
+    uint32_t lastCount = sensorCount_.load();
     while (running_) {
         auto now = clock::now();
         if (next - now > std::chrono::milliseconds(2))
@@ -285,6 +315,19 @@ void HmdDevice::VsyncLoop() {
                 Recenter();
             }
             keyWasDown = down;
+        }
+
+        // Report the real sensor rate every 5 s (helps diagnose laggy tracking).
+        auto tnow = clock::now();
+        if (tnow - lastRateLog >= std::chrono::seconds(5)) {
+            uint32_t c = sensorCount_.load();
+            double secs = std::chrono::duration<double>(tnow - lastRateLog).count();
+            const uint32_t gapUs = maxGapUs_.exchange(0);
+            if (phoneConnected_)
+                Log("PhoneVR: sensor rate %.0f Hz, longest gap between samples %.1f ms",
+                    (c - lastCount) / secs, gapUs / 1000.0);
+            lastCount = c;
+            lastRateLog = tnow;
         }
     }
     timeEndPeriod(1);

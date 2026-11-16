@@ -145,8 +145,10 @@ class H264Encoder {
 public:
     using OutFn = std::function<void(const uint8_t*, size_t, bool)>;
 
-    bool Init(ID3D11Device* dev, uint32_t w, uint32_t h, float fps, uint32_t kbps, OutFn out) {
+    bool Init(ID3D11Device* dev, uint32_t w, uint32_t h, float fps, uint32_t kbps, bool baseline,
+              OutFn out) {
         out_ = std::move(out);
+        baseline_ = baseline;
         w_ = w;
         h_ = h;
         fps_ = fps;
@@ -270,6 +272,7 @@ private:
             SetU32(codec_.Get(), CODECAPI_AVEncMPVGOPSize, 3600);  // keyframes on demand
             SetU32(codec_.Get(), CODECAPI_AVEncMPVDefaultBPictureCount, 0);
             SetU32(codec_.Get(), CODECAPI_AVEncCommonQualityVsSpeed, 30);
+            SetU32(codec_.Get(), CODECAPI_AVEncVideoMaxNumRefFrame, 1);  // small decoder DPB = less buffering
         }
 
         ComPtr<IMFMediaType> out;
@@ -281,7 +284,7 @@ private:
         MFSetAttributeRatio(out.Get(), MF_MT_FRAME_RATE, (UINT32)std::lround(fps_), 1);
         MFSetAttributeRatio(out.Get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
         out->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive);
-        out->SetUINT32(MF_MT_MPEG2_PROFILE, eAVEncH264VProfile_Main);
+        out->SetUINT32(MF_MT_MPEG2_PROFILE, baseline_ ? eAVEncH264VProfile_Base : eAVEncH264VProfile_Main);
         out->SetUINT32(MF_MT_VIDEO_NOMINAL_RANGE, MFNominalRange_16_235);
         out->SetUINT32(MF_MT_YUV_MATRIX, MFVideoTransferMatrix_BT709);
         if (FAILED(mft_->SetOutputType(0, out.Get(), 0))) return false;
@@ -402,7 +405,7 @@ private:
     uint32_t w_ = 0, h_ = 0;
     float fps_ = 60;
     LONGLONG frameDurationHns_ = 166666;
-    bool mfStarted_ = false, async_ = false, providesSamples_ = false;
+    bool mfStarted_ = false, async_ = false, providesSamples_ = false, baseline_ = true;
     DWORD outSize_ = 1u << 20;
     int needInput_ = 0;
     bool gotOutput_ = false;
@@ -561,7 +564,7 @@ bool VideoPipeline::Init(const Settings& s) {
     auto outFn = [this](const uint8_t* d, size_t n, bool key) {
         if (onPacket_) onPacket_(d, n, key, frameCounter_++, NowUs());
     };
-    if (!enc_->Init(dev_.Get(), s.streamWidth, s.streamHeight, s.refreshRate, s.bitrateKbps, outFn))
+    if (!enc_->Init(dev_.Get(), s.streamWidth, s.streamHeight, s.refreshRate, s.bitrateKbps, !s.useMainProfile, outFn))
         return false;
     stop_ = false;
     encThread_ = std::thread(&VideoPipeline::EncodeLoop, this);

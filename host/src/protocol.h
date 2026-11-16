@@ -28,10 +28,13 @@ enum MsgType : uint8_t {
     MSG_RECENTER = 3,
     MSG_SET_BITRATE = 4,
     MSG_REQUEST_IDR = 5,
+    MSG_PING = 8,            // payload: u64 token, echoed back in MSG_PONG
+    MSG_IMU = 7,             // raw gyro + accelerometer (PC does the sensor fusion)
     MSG_CLICK = 6,           // payload: first byte 1 = pressed, 0 = released
     // PC -> phone
     MSG_HELLO_ACK = 101,
     MSG_VIDEO = 102,
+    MSG_PONG = 103,
 };
 
 #pragma pack(push, 1)
@@ -66,6 +69,14 @@ struct SensorMsg {           // phone -> PC (sent at sensor rate, ~200-500 Hz)
     uint8_t pad[3];
 };
 
+struct ImuMsg {              // phone -> PC (sent at gyroscope rate, up to ~500 Hz)
+    uint64_t timestampNs;
+    float gx, gy, gz;        // rad/s about the device axes
+    float ax, ay, az;        // m/s^2 incl. gravity, device axes
+    uint8_t displayRotation;
+    uint8_t pad[3];
+};
+
 struct SetBitrateMsg {       // phone -> PC
     uint32_t bitrateKbps;
 };
@@ -83,5 +94,6 @@ static_assert(sizeof(HelloMsg) == 20, "hello size");
 static_assert(sizeof(HelloAckMsg) == 24, "ack size");
 static_assert(sizeof(SensorMsg) == 28, "sensor size");
 static_assert(sizeof(VideoMsg) == 24, "video size");
+static_assert(sizeof(ImuMsg) == 36, "imu size");
 
 }  // namespace phonevr

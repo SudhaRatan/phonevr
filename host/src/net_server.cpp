@@ -318,6 +318,26 @@ void NetServer::ClientLoop(uintptr_t sock) {
                 if (cb_.onSetBitrate) cb_.onSetBitrate(m.bitrateKbps);
                 break;
             }
+            case MSG_PING: {
+                uint64_t token = 0;
+                if (h.length < sizeof(token) || !rd.readExact(&token, sizeof(token))) goto done;
+                if (!rd.skip(h.length - sizeof(token))) goto done;
+                if (gotHello) {
+                    uint8_t pong[sizeof(MsgHeader) + sizeof(uint64_t)];
+                    MsgHeader ph = {MSG_PONG, 0, 0, (uint32_t)sizeof(token)};
+                    memcpy(pong, &ph, sizeof(ph));
+                    memcpy(pong + sizeof(ph), &token, sizeof(token));
+                    if (!SendAll(sock, pong, sizeof(pong))) goto done;
+                }
+                break;
+            }
+            case MSG_IMU: {
+                ImuMsg m;
+                if (h.length < sizeof(m) || !rd.readExact(&m, sizeof(m))) goto done;
+                if (!rd.skip(h.length - sizeof(m))) goto done;
+                if (gotHello && cb_.onImu) cb_.onImu(m);
+                break;
+            }
             case MSG_CLICK: {
                 uint8_t pressed = 0;
                 if (h.length < 1 || !rd.readExact(&pressed, 1)) goto done;
