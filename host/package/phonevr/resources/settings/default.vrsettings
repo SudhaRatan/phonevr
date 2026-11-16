@@ -13,10 +13,11 @@
     "lensCenterShiftY": 0.0,
     "ipdMm": 63.0,
     "headHeightM": 1.6,
+    "photonLatencyMs": 35.0,
+    "useMainProfile": true,
     "usbEnabled": true,
     "adbPath": "",
     "enableHotkeys": true,
-    "gpuIndex": -1,
-    "disableGazeController": true
+    "gpuIndex": -1
   }
 }

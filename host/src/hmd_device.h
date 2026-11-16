@@ -64,6 +64,7 @@ public:
 
     // phone events (network threads)
     void OnSensor(const SensorMsg& m);
+    void OnImu(const ImuMsg& m);
     void Recenter();
     void OnClick(bool down) { if (gaze_) gaze_->SetClick(down); }
     void SetGazeController(GazeController* g) { gaze_ = g; }
@@ -86,6 +87,11 @@ private:
     uint32_t objectId_ = vr::k_unTrackedDeviceIndexInvalid;
     mutable std::mutex poseMutex_;
     HeadTracker tracker_;
+    ImuFusion fusion_;
+    std::atomic<uint32_t> sensorCount_{0};
+    std::atomic<uint32_t> maxGapUs_{0};      // longest pause between two sensor messages
+    std::atomic<int64_t> lastSampleUs_{0};
+    void NoteSample();
     std::atomic<bool> phoneConnected_{false};
 
     std::atomic<bool> running_{false};

@@ -36,6 +36,7 @@ public:
         cb.onRequestIdr = [this] { pipeline_->RequestKeyframe(); };
         cb.onSetBitrate = [this](uint32_t k) { pipeline_->SetBitrate(k); };
         cb.onClick = [this](bool down) { hmd_->OnClick(down); };
+        cb.onImu = [this](const ImuMsg& m) { hmd_->OnImu(m); };
         net_ = std::make_unique<NetServer>(settings_, std::move(cb));
 
         pipeline_->SetPacketCallback([this](const uint8_t* d, size_t n, bool key, uint64_t id,

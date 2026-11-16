@@ -193,4 +193,73 @@ private:
     std::atomic<bool> recenterPending_{false};
 };
 
+// Gyro + accelerometer fusion (Mahony-style complementary filter), run on the PC.
+//  * orientation comes from integrating the gyroscope at its full rate
+//  * the accelerometer only slowly pulls pitch/roll toward gravity
+//  * yaw has no absolute reference (no magnetometer) and drifts: use recenter
+// Output quaternion maps device axes -> world axes, with world +z = up, the same
+// convention as Android's GAME_ROTATION_VECTOR, so it feeds HeadTracker directly.
+class ImuFusion {
+public:
+    void reset() { *this = ImuFusion(); }
+
+    // Returns false until the first usable accelerometer sample has arrived.
+    bool update(const Vec3& gyro, const Vec3& accel, uint64_t tsNs, Quat* out) {
+        const double an = norm(accel);
+        const bool accelOk = an > 4.0 && an < 20.0;
+        if (!init_) {
+            if (!accelOk) return false;
+            q_ = tiltFromUp({accel.x / an, accel.y / an, accel.z / an});
+            lastNs_ = tsNs;
+            init_ = true;
+            *out = q_;
+            return true;
+        }
+        if (tsNs <= lastNs_) { *out = q_; return true; }
+        double dt = (double)(tsNs - lastNs_) * 1e-9;
+        lastNs_ = tsNs;
+        if (dt > 0.05) dt = 0.05;  // after a stall, do not integrate a huge step
+
+        Vec3 w = gyro;
+        // Only trust the accelerometer when the head is not accelerating much.
+        if (accelOk && std::fabs(an - 9.80665) < 2.5) {
+            Vec3 a = {accel.x / an, accel.y / an, accel.z / an};
+            Vec3 v = qrotate(qconj(q_), {0, 0, 1});  // estimated "up" in device axes
+            Vec3 e = cross(a, v);
+            w = {w.x + kp_ * e.x, w.y + kp_ * e.y, w.z + kp_ * e.z};
+        }
+        const double wn = norm(w);
+        const double ang = wn * dt;
+        Quat dq;
+        if (ang < 1e-9) {
+            dq = {1, 0.5 * w.x * dt, 0.5 * w.y * dt, 0.5 * w.z * dt};
+        } else {
+            const double s = std::sin(ang / 2) / wn;
+            dq = {std::cos(ang / 2), w.x * s, w.y * s, w.z * s};
+        }
+        q_ = qnormalize(qmul(q_, dq));
+        *out = q_;
+        return true;
+    }
+
+    void setTiltGain(double kp) { kp_ = kp; }
+
+private:
+    static double norm(const Vec3& v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+    static Vec3 cross(const Vec3& a, const Vec3& b) {
+        return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+    }
+    // Shortest rotation taking the device-frame vector u onto world up (0,0,1).
+    static Quat tiltFromUp(const Vec3& u) {
+        const double d = u.z;  // u . (0,0,1)
+        if (d < -0.999999) return {0, 1, 0, 0};
+        return qnormalize({1.0 + d, u.y * 1.0 - 0.0, -u.x, 0.0});  // (1+d, u x (0,0,1))
+    }
+
+    Quat q_;
+    uint64_t lastNs_ = 0;
+    bool init_ = false;
+    double kp_ = 1.0;  // 1/s: tilt error time constant of about one second
+};
+
 }  // namespace phonevr

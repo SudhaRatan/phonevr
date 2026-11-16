@@ -36,10 +36,12 @@ struct Settings {
     float lensCenterShiftY = 0.f;  // fraction of eye-viewport height, positive = down
     float ipdMm = 63.f;
     float headHeightM = 1.6f;
+    float photonLatencyMs = 35.f;  // tells SteamVR how far ahead to predict the head pose
+    bool useMainProfile = false;   // false = H.264 Baseline (least decoder buffering)
     bool usbEnabled = true;
     std::string adbPath;           // empty = bundled adb, then PATH
     bool hotkeys = true;           // Ctrl+Alt+R recenters
-    bool gazeController = true;    // virtual gaze-pointer controller (phone volume-up = click)
+    bool gazeController = false;   // experimental virtual gaze-pointer controller (off by default)
     int gpuIndex = -1;             // -1 = auto (largest VRAM)
 
     static Settings Load() {
@@ -59,9 +61,11 @@ struct Settings {
         s.lensCenterShiftY = v->GetFloat(S, "lensCenterShiftY");
         s.ipdMm = v->GetFloat(S, "ipdMm");
         s.headHeightM = v->GetFloat(S, "headHeightM");
+        s.photonLatencyMs = v->GetFloat(S, "photonLatencyMs");
+        s.useMainProfile = v->GetBool(S, "useMainProfile");
         s.usbEnabled = v->GetBool(S, "usbEnabled");
         s.hotkeys = v->GetBool(S, "enableHotkeys");
-        s.gazeController = !v->GetBool(S, "disableGazeController");
+        s.gazeController = v->GetBool(S, "enableGazeController");
         s.gpuIndex = v->GetInt32(S, "gpuIndex");
         char buf[512] = {};
         v->GetString(S, "adbPath", buf, sizeof(buf));
@@ -78,6 +82,8 @@ struct Settings {
         s.renderScale = std::clamp(s.renderScale, 0.5f, 3.0f);
         s.verticalFovDeg = std::clamp(s.verticalFovDeg, 40.f, 150.f);
         s.ipdMm = std::clamp(s.ipdMm, 40.f, 80.f);
+        if (s.photonLatencyMs <= 0.f) s.photonLatencyMs = d.photonLatencyMs;  // key missing
+        s.photonLatencyMs = std::clamp(s.photonLatencyMs, 5.f, 150.f);
         return s;
     }
 };

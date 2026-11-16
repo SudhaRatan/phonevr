@@ -78,6 +78,34 @@ class MainActivity : Activity() {
         }
         col.addView(reverse)
 
+        val rawGyro = CheckBox(this).apply {
+            text = "Raw gyroscope mode (try this if head tracking feels laggy; the PC does the sensor fusion)"
+            isChecked = prefs.rawGyro
+            setTextColor(Color.WHITE)
+        }
+        col.addView(rawGyro)
+
+        val diag = CheckBox(this).apply {
+            text = "Show diagnostics overlay (latency numbers, top-left of the screen)"
+            isChecked = prefs.showDiag
+            setTextColor(Color.WHITE)
+        }
+        col.addView(diag)
+
+        val sustained = CheckBox(this).apply {
+            text = "Sustained performance mode (cooler; untick to test for lower latency)"
+            isChecked = prefs.sustainedPerf
+            setTextColor(Color.WHITE)
+        }
+        col.addView(sustained)
+
+        val pacing = CheckBox(this).apply {
+            text = "Frame pacing (fixes extra screen delay on some phones; untick to compare)"
+            isChecked = prefs.framePacing
+            setTextColor(Color.WHITE)
+        }
+        col.addView(pacing)
+
         col.addView(label("In VR: volume up/down or double-tap = recenter. Back = exit."))
 
         val start = Button(this).apply {
@@ -87,6 +115,10 @@ class MainActivity : Activity() {
                 prefs.host = hostEdit.text.toString().trim()
                 prefs.bitrateKbps = seek.progress * 5000
                 prefs.reverseLandscape = reverse.isChecked
+                prefs.rawGyro = rawGyro.isChecked
+                prefs.showDiag = diag.isChecked
+                prefs.sustainedPerf = sustained.isChecked
+                prefs.framePacing = pacing.isChecked
                 startActivity(Intent(this@MainActivity, VrActivity::class.java))
             }
         }
