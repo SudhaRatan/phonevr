@@ -21,8 +21,9 @@ behind, the host drops queued frames and resynchronizes on a fresh keyframe inst
   (changes the encoder live, CBR). Resolution/refresh are in the settings file.
 * **3DoF** head tracking with `GAME_ROTATION_VECTOR` (gyro+accelerometer fusion done by Android).
   SteamVR also applies a small neck model.
-* **Recentering**: volume up/down or double-tap on the phone, `Ctrl+Alt+R` on the PC, and automatically on
+* **Recentering**: volume down or double-tap on the phone, `Ctrl+Alt+R` on the PC, and automatically on
   connect. (SteamVR's own "Recenter" also works.)
+* **Quick Brightness adjust**: volume up to cycle through 5 brightness steps of 10%, 25%, 45%, 70% and 100%.
 * **Holder support**: side-by-side barrel-distorted output with adjustable `k1/k2`, chromatic
   correction, lens-centre shift and FOV. Both landscape directions are supported.
 

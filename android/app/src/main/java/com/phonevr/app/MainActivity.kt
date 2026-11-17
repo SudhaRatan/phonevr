@@ -90,7 +90,6 @@ class MainActivity : Activity() {
             isChecked = prefs.showDiag
             setTextColor(Color.WHITE)
         }
-        col.addView(diag)
 
         val sustained = CheckBox(this).apply {
             text = "Sustained performance mode (cooler; untick to test for lower latency)"
@@ -105,8 +104,9 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
         }
         col.addView(pacing)
+        col.addView(diag)
 
-        col.addView(label("In VR: volume up/down or double-tap = recenter. Back = exit."))
+        col.addView(label("In VR: volume down or double-tap = recenter, volume up = cycle screen brightness. Back = exit."))
 
         val start = Button(this).apply {
             text = "Start"
