@@ -74,7 +74,47 @@ on the phone. Needs Android 8.0+ and a gyroscope.
 | `verticalFovDegrees`, `lensK1`, `lensK2` | Distortion for your lenses (straight lines in the world should look straight) |
 | `lensCenterShiftX/Y` | Move lens centre (fraction of eye width; + = toward nose) to match your IPD/holder |
 | `chromaticAberration` | Small value like 0.01 if colour fringes appear |
+| `photonLatencyMs` | How far ahead SteamVR predicts your head. Higher values compensate for delay but overshoot when you stop turning your head. |
+| `useMainProfile` | H.264 Main profile instead of Baseline (better quality but more decoder buffering). |
 | `gpuIndex` | Pick a GPU on multi-GPU systems (-1 = largest VRAM) |
 
 Restart SteamVR after editing.
 
+## Phone app settings
+
+Open the app, adjust the options, then press **Start**. Every option is remembered for next time.
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Connection** | Auto | *Auto* tries USB first, then WiFi. *USB only* waits for the cable (needs USB debugging on the phone). *WiFi only* searches the local network for the PC. |
+| **PC IP address** | empty | Optional. Leave it empty to find the PC automatically on WiFi. The app saves the address after the first successful WiFi connection, and falls back to automatic discovery if the PC's address changes. Type one in yourself if discovery is blocked (different subnet, firewall). |
+| **Video bitrate** | PC default | Slider from 0 to 100 Mbps in 5 Mbps steps. `0` uses the `bitrateKbps` value in the PC settings. Lower means more compression and less bandwidth. Applied when the stream connects. Suggested: USB 40-80 Mbps, WiFi 15-35 Mbps. |
+| **Flip landscape** | off | Tick if the picture is upside down in your holder, i.e. the phone's top edge points to your right instead of your left. |
+| **Raw gyroscope mode** | off | Sends the unfiltered gyroscope and accelerometer readings, and the PC does the sensor fusion instead of Android. Results vary by phone: it made one test phone feel smoother but made another feel jittery, so try it both ways. The tilt stays level, but left-right drift builds slowly, as in the normal mode, so recenter now and then. |
+| **Sustained performance mode** | on | Asks Android to cap the phone's clock speed to what it can hold indefinitely. Keeps the phone cooler. On some phones it adds occasional latency spikes; untick it to test. |
+| **Frame pacing** | off | Experimental. Shows only the newest decoded frame once per display refresh. |
+| **Show diagnostics overlay** | off | Draws latency numbers at the top-left of the screen (see below). |
+
+### Controls while in VR
+
+| Input | Action |
+|---|---|
+| Volume down, or double-tap the screen | Recenter (the direction you are facing becomes "forward") |
+| Volume up | Cycle the screen brightness: 10% → 25% → 45% → 70% → 100% → back to 10%. The level is remembered and does not change your phone's normal brightness setting. |
+| Back | Leave VR |
+
+On the PC, `Ctrl+Alt+R` also recenters, and so does SteamVR's own reset.
+
+### Diagnostics overlay
+
+Turn it on, press Start, and read it with the phone in your hand (it is not readable inside a headset).
+
+| Line | Meaning | Healthy |
+|---|---|---|
+| `sensor: N Hz, delivery avg / max` | How often the phone reports rotation, and how long a reading waits inside the phone before the app gets it | About 200 Hz, avg under 5 ms |
+| `decode: avg / max` | Time a video frame spends in the phone's hardware decoder | Under about 15 ms at 2160x1080 |
+| `fed->on screen: avg / max` | The wait for the display to show the frame. | Under about 10 ms |
+| `link RTT: avg / max` | Round trip phone → PC → phone | A few ms; watch for spikes |
+| `video queued in link: avg / max` | How much later each frame arrives than at its best moment | Near 0; a high number means the link is overloaded |
+
+If `link RTT` or `video queued in link` stay high, lower the bitrate or switch to USB.
