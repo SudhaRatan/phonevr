@@ -29,6 +29,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("framePacing", false)
         set(v) = sp.edit().putBoolean("framePacing", v).apply()
 
+    /** Index into the brightness steps in VrActivity (4 = full brightness). */
+    var brightnessStep: Int
+        get() = sp.getInt("brightnessStep", 4)
+        set(v) = sp.edit().putInt("brightnessStep", v).apply()
+
     var showDiag: Boolean
         get() = sp.getBoolean("showDiag", false)
         set(v) = sp.edit().putBoolean("showDiag", v).apply()

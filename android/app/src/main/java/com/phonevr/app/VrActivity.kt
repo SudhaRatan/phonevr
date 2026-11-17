@@ -49,6 +49,7 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
         requestedOrientation = if (prefs.reverseLandscape)
             ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        applyBrightness()
         if (Build.VERSION.SDK_INT >= 28) {
             window.attributes.layoutInDisplayCutoutMode =
                 WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -155,11 +156,32 @@ class VrActivity : Activity(), SurfaceHolder.Callback, StreamClient.Listener {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            if (event.repeatCount == 0) client?.sendRecenter()
-            return true
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (event.repeatCount == 0) client?.sendRecenter()
+                return true
+            }
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (event.repeatCount == 0) cycleBrightness()
+                return true
+            }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    // Screen brightness steps (fraction of maximum), cycled by volume up. Spaced closer together
+    // at the dim end because the eye is more sensitive there. After the brightest step it wraps to the dimmest.
+    private val brightnessSteps = floatArrayOf(0.10f, 0.25f, 0.45f, 0.70f, 1.00f)
+
+    private fun applyBrightness() {
+        val lp = window.attributes
+        lp.screenBrightness = brightnessSteps[prefs.brightnessStep.coerceIn(0, brightnessSteps.size - 1)]
+        window.attributes = lp
+    }
+
+    private fun cycleBrightness() {
+        prefs.brightnessStep = (prefs.brightnessStep + 1) % brightnessSteps.size
+        applyBrightness()
     }
 
     // ---- StreamClient.Listener (called from the network thread) ----------
