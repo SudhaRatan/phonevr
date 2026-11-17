@@ -3,7 +3,7 @@
 Simple PhoneVR implementation similar to already existing ones. Difference is, the PC does everything: SteamVR renders, the driver applies the lens distortion, converts to
 NV12 on the GPU and hardware-encodes H.264. The phone only hardware-decodes into a plain
 SurfaceView and streams its rotation sensor. **No Google Cardboard API, no OpenGL, no VR SDK**
-on the phone, so there is almost no load or heat on it. I was unsatisfied with existing implementations cooking my phone so I made this instead. I might make executables if anyone is actually interested, otherwise just build from source using instructions below.
+on the phone, so there is almost no load or heat on it. I was unsatisfied with existing implementations cooking my phone so I made this instead.
 
 ```
 SteamVR compositor (direct mode)
@@ -36,7 +36,30 @@ behind, the host drops queued frames and resynchronizes on a fresh keyframe inst
 | `host/install.ps1` | One-step install/registration with SteamVR |
 | `android/` | Kotlin app |
 
-## Build and install (PC, Windows 10/11)
+## Prerequisites
+
+1. Install [Microsoft Visual C++ Redistributables](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version).
+2. Install SteamVR and run it at least once to generate default configs. It's fine if you have already run it with a different HMD before. The setup script will make a backup of your previous configs.
+3. Make sure you are connected to the Internet before running the PC setup since this will download dependencies it needs.
+
+## Installation (PC, Windows 10/11)
+
+1. Navigate to Releases and download `PhoneVR-Setup.exe`.
+2. Run the installer. Install location doesn't matter since this step only installs the actual setup script that it will run automatically.
+3. Wait for the installer to finish. **Do not panic if it looks stuck.** It is just downloading dependencies.
+
+## Installation (Android)
+
+1. Navigate to Releases and download `app-release.apk`.
+2. Allow third-party apk installs from your phone's settings.
+3. Install the apk.
+
+## Uninstallation
+
+1. (PC) Either uninstall from the `Add or remove programs` Windows system settings or run the uninstaller located in the install location.
+2. (Android) Uninstall through your phone's app settings.
+
+## Build and install on PC from source
 
 Needs Visual Studio 2022 (C++ workload) and CMake. OpenVR headers are downloaded automatically.
 
@@ -50,9 +73,9 @@ cmake --build build --config Release
 `install.ps1` sets `steamvr.forcedDriver=phonevr` so SteamVR starts without a physical headset
 (backup saved; `.\install.ps1 -Uninstall` restores it).
 
-Needs a GPU with hardware encoding (NVENC or others). AMD cards untested yet. If you have any modern GPU, you already have this.
+Needs a GPU with hardware encoding (NVENC or others). AMD/Intel cards untested yet. If you have any modern GPU, you already have this.
 
-## Build the phone app
+## Build the phone app from source
 
 Open `android/` in Android Studio (or `gradle assembleDebug` with a Gradle 8.9+ install) and run it
 on the phone. Needs Android 8.0+ and a gyroscope.
