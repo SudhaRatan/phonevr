@@ -94,7 +94,8 @@ on the phone. Needs Android 8.0+ and a gyroscope.
 | `refreshRate` | 60 default; use your phone's rate |
 | `bitrateKbps` | Compression level (phone slider overrides). USB: 40-80 Mbps; WiFi: 15-35 Mbps |
 | `renderScale` | SteamVR render size vs. eye size (1.4 default; lower = faster) |
-| `verticalFovDegrees`, `lensK1`, `lensK2` | Distortion for your lenses (straight lines in the world should look straight) |
+| `verticalFovDegrees` | Vertical FOV (90 degrees default) |
+| `lensK1`, `lensK2` | Lens distortion (straight lines in the world should look straight). `lensK1` shapes the mid-range while `lensK2` shapes the far edges. <br> Also adjusts the lens size. Try to keep the ratio close to 3:1 if keeping default distortion. <br> Sample values: <br> lensK1: 0.25 \| lensK2: 0.08 (82% size default) <br> lensK1: 0.10 \| lensK2: 0.033 (90% size) <br> lensK1: 0.046 \| lensK2: 0.014 (95% size)|
 | `lensCenterShiftX/Y` | Move lens centre (fraction of eye width; + = toward nose) to match your IPD/holder |
 | `chromaticAberration` | Small value like 0.01 if colour fringes appear |
 | `photonLatencyMs` | How far ahead SteamVR predicts your head. Higher values compensate for delay but overshoot when you stop turning your head. |
@@ -141,3 +142,10 @@ Turn it on, press Start, and read it with the phone in your hand (it is not read
 | `video queued in link: avg / max` | How much later each frame arrives than at its best moment | Near 0; a high number means the link is overloaded |
 
 If `link RTT` or `video queued in link` stay high, lower the bitrate or switch to USB.
+
+## Planned Features
+
+- Timewarp / Spacewarp / Reprojection
+- Support for other encoders (iGPU encoding, H.265 encoding, etc.)
+- Experimental 6DoF support
+- Generic controller support
